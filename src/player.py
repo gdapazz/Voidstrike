@@ -40,12 +40,13 @@ class Player:
 
     def shoot(self, bullets):
         if self.fire_timer > 0:
-            return
+            return False
         self.fire_timer = self.fire_cooldown
         bullet = PlayerBullet(self.x, self.y, self.angle)
         bullet.x += math.cos(self.angle) * 20
         bullet.y += math.sin(self.angle) * 20
         bullets.append(bullet)
+        return True
 
     def take_damage(self, amount):
         if self.invulnerable_timer > 0:

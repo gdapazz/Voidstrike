@@ -257,7 +257,8 @@ class Game:
         self.mouse_pos = pygame.mouse.get_pos()
         if self.state == "playing":
             if self.player is not None and self.mouse_down:
-                self.player.shoot(self.player_bullets)
+                if self.player.shoot(self.player_bullets):
+                    self.audio.play_sfx("GunshotSoundEffect.mp3")
 
     def update(self):
         self.dt = self.clock.tick(FPS) / 1000.0
@@ -283,7 +284,8 @@ class Game:
         if self.player is not None:
             self.player.update(self.dt, self.mouse_pos, pygame.key.get_pressed())
             if self.mouse_down:
-                self.player.shoot(self.player_bullets)
+                if self.player.shoot(self.player_bullets):
+                    self.audio.play_sfx("GunshotSoundEffect.mp3")
 
         if self.current_boss is not None and self.current_boss.alive:
             self.current_boss.update(self.dt, self.player, self.enemy_bullets)
@@ -361,6 +363,7 @@ class Game:
             self.player.hp = 0
             self.state = "game_over"
             self.audio.stop_music()
+            self.audio.play_sfx("GameOverSoundEffect.mp3")
 
         if self.current_boss is None and not self.boss_wave and self.wave_started and not self.wave_spawn_queue and len(self.enemies) == 0:
             self.wave_number += 1
