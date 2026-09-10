@@ -1,0 +1,32 @@
+{
+  "1": {
+    "enemies": { "basic": 8 }
+  },
+  "2": {
+    "enemies": { "basic": 10, "fast": 3 }
+  },
+  "3": {
+    "enemies": { "basic": 8, "shooter": 3 }
+  },
+  "4": {
+    "enemies": { "basic": 10, "fast": 4, "shooter": 3 }
+  },
+  "5": {
+    "boss": "boss_01"
+  },
+  "6": {
+    "enemies": { "basic": 12, "fast": 5, "shooter": 4, "tank": 2 }
+  },
+  "7": {
+    "enemies": { "basic": 14, "fast": 5, "shooter": 5, "tank": 2, "elite": 2 }
+  },
+  "8": {
+    "boss": "boss_02"
+  },
+  "9": {
+    "enemies": { "basic": 16, "fast": 6, "shooter": 6, "tank": 3, "elite": 3 }
+  },
+  "10": {
+    "boss": "boss_01"
+  }
+}
