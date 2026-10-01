@@ -39,13 +39,13 @@ class Projectile:
 
 
 class PlayerBullet(Projectile):
-    def __init__(self, x, y, angle):
+    def __init__(self, x, y, angle, damage=20):
         super().__init__(
             x,
             y,
             angle,
             760,
-            20,
+            damage,
             "player",
             radius=4,
             color=(120, 220, 255),

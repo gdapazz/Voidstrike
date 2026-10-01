@@ -1,4 +1,5 @@
 import os
+import random
 import sys
 from pathlib import Path
 
@@ -9,7 +10,8 @@ from config import DEFAULT_SETTINGS, ROOT_DIR
 
 class AudioManager:
     def __init__(self):
-        self.music_path = ROOT_DIR / "Músicas" / "Under_Heavy_Fire.mp3"
+        self.music_directory = ROOT_DIR / "Music" / "PlayMusic"
+        self.music_path = None
         self.music_volume = DEFAULT_SETTINGS["music_volume"]
         self.sfx_volume = DEFAULT_SETTINGS["sfx_volume"]
         self.music_started = False
@@ -25,23 +27,35 @@ class AudioManager:
             pygame.mixer.music.set_volume(self.music_volume)
 
     def start_music(self):
-        if not self.music_path.exists():
-            print("[Audio] Música principal não encontrada em Músicas/Under_Heavy_Fire.mp3")
-            return
         if pygame.mixer.get_init() is None:
             return
+        music_files = sorted(
+            path for path in self.music_directory.iterdir()
+            if path.is_file() and path.suffix.lower() in {".mp3", ".ogg", ".wav"}
+        ) if self.music_directory.exists() else []
+        if not music_files:
+            print("[Audio] Nenhuma música encontrada em Music/PlayMusic")
+            return
+
+        available_files = [path for path in music_files if path != self.music_path]
+        self.music_path = random.choice(available_files or music_files)
         try:
             pygame.mixer.music.load(str(self.music_path))
             pygame.mixer.music.set_volume(self.music_volume)
-            pygame.mixer.music.play(-1)
+            pygame.mixer.music.play()
             self.music_started = True
         except Exception as exc:  # pragma: no cover - runtime validation
             self.last_error = exc
             print(f"[Audio] Não foi possível carregar a música: {exc}")
 
+    def update_music(self):
+        if self.music_started and pygame.mixer.get_init() is not None and not pygame.mixer.music.get_busy():
+            self.start_music()
+
     def stop_music(self):
         if pygame.mixer.get_init() is not None:
             pygame.mixer.music.stop()
+        self.music_started = False
 
     def play_sfx(self, path, loops=0):
         if pygame.mixer.get_init() is None:

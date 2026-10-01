@@ -11,8 +11,10 @@ from src.bosses import BossOne, BossTwo
 from src.enemies import enemy_from_type
 from src.particles import ParticleSystem
 from src.player import Player
+from src.powerups import POWERUPS, Powerup
 from src.settings import SettingsManager
 from src.ui import Button, UI
+from src.i18n import LANGUAGE_NAMES, translate
 from src.utils import get_asset_path, load_image
 from src.waves import WaveSystem
 
@@ -34,6 +36,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.running = True
         self.state = "menu"
+        self.language = "english"
         self.dt = 0.0
 
         self.settings = SettingsManager()
@@ -44,6 +47,10 @@ class Game:
         self.ui = UI(self)
         self.particles = ParticleSystem()
         self.score = 0
+        self.kills = 0
+        self.collected_powerups = set()
+        self.powerup_choices = []
+        self.powerup_buttons = []
         self.wave_number = 1
         self.current_boss = None
         self.boss_alert_start = 0
@@ -64,9 +71,14 @@ class Game:
         ]
 
         self.menu_buttons = [
-            Button(560, 260, 180, 52, "PLAY", self.start_game),
-            Button(560, 330, 180, 52, "SETTINGS", self.show_settings),
-            Button(560, 400, 180, 52, "QUIT", self.quit_game),
+            Button(30, 185, 500, 55, "PLAY", self.start_game, text_only=True),
+            Button(30, 270, 500, 55, "SETTINGS", self.show_settings, text_only=True),
+            Button(30, 355, 500, 55, "TUTORIAL", self.show_tutorial, text_only=True),
+            Button(30, 440, 500, 55, "QUIT", self.quit_game, text_only=True),
+        ]
+
+        self.tutorial_buttons = [
+            Button(30, 620, 260, 55, "BACK", self.back_from_tutorial, text_only=True),
         ]
 
         self.pause_buttons = [
@@ -81,13 +93,21 @@ class Game:
         ]
 
         self.settings_buttons = [
-            Button(500, 220, 220, 52, "MUSIC +", lambda: self.adjust_music(0.1)),
-            Button(760, 220, 220, 52, "MUSIC -", lambda: self.adjust_music(-0.1)),
-            Button(500, 310, 220, 52, "SFX +", lambda: self.adjust_sfx(0.1)),
-            Button(760, 310, 220, 52, "SFX -", lambda: self.adjust_sfx(-0.1)),
-            Button(500, 400, 220, 52, "FULLSCREEN", self.toggle_fullscreen),
-            Button(760, 400, 220, 52, "BACK", self.back_from_settings),
+            Button(30, 175, 500, 48, "", lambda: self.adjust_music(0.1), text_only=True),
+            Button(30, 235, 500, 48, "", lambda: self.adjust_music(-0.1), text_only=True),
+            Button(30, 295, 500, 48, "", lambda: self.adjust_sfx(0.1), text_only=True),
+            Button(30, 355, 500, 48, "", lambda: self.adjust_sfx(-0.1), text_only=True),
+            Button(30, 415, 500, 48, "", self.toggle_fullscreen, text_only=True),
+            Button(30, 475, 500, 48, "", self.show_languages, text_only=True),
+            Button(30, 535, 500, 48, "", self.back_from_settings, text_only=True),
         ]
+        self.language_buttons = [
+            Button(30, 210, 500, 55, "english", lambda: self.set_language("english"), text_only=True),
+            Button(30, 290, 500, 55, "português", lambda: self.set_language("portugues"), text_only=True),
+            Button(30, 370, 500, 55, "español", lambda: self.set_language("espanol"), text_only=True),
+            Button(30, 530, 500, 55, "BACK", self.back_from_languages, text_only=True),
+        ]
+        self.refresh_button_texts()
 
         self.settings_state = None
         self.wave_delay = 0.0
@@ -107,6 +127,10 @@ class Game:
         self.enemy_bullets = []
         self.current_boss = None
         self.score = 0
+        self.kills = 0
+        self.collected_powerups = set()
+        self.powerup_choices = []
+        self.powerup_buttons = []
         self.wave_number = 1
         self.wave_spawn_queue = self.wave_system.get_enemy_queue(self.wave_number)
         self.wave_delay = 1.0
@@ -135,7 +159,54 @@ class Game:
         self.settings_state = self.state
         self.state = "settings"
 
+    def text(self, key):
+        return translate(self.language, key)
+
+    def refresh_button_texts(self):
+        labels = ("play", "settings", "tutorial", "quit")
+        for button, key in zip(self.menu_buttons, labels):
+            button.text = self.text(key)
+        self.settings_buttons[0].text = self.text("music_up")
+        self.settings_buttons[1].text = self.text("music_down")
+        self.settings_buttons[2].text = self.text("sfx_up")
+        self.settings_buttons[3].text = self.text("sfx_down")
+        self.settings_buttons[4].text = self.text("fullscreen")
+        self.settings_buttons[5].text = self.text("language")
+        self.settings_buttons[6].text = self.text("back")
+        self.language_buttons[0].text = "english"
+        self.language_buttons[1].text = "português"
+        self.language_buttons[2].text = "español"
+        self.language_buttons[3].text = self.text("back")
+        self.pause_buttons[0].text = self.text("resume")
+        self.pause_buttons[1].text = self.text("settings")
+        self.pause_buttons[2].text = self.text("main_menu")
+        self.game_over_buttons[0].text = self.text("restart")
+        self.game_over_buttons[1].text = self.text("menu")
+        self.tutorial_buttons[0].text = self.text("back")
+
+    def show_languages(self):
+        self.settings_state = "settings"
+        self.state = "languages"
+
+    def back_from_languages(self):
+        self.state = self.settings_state or "settings"
+        self.settings_state = None
+
+    def set_language(self, language):
+        self.language = language
+        self.refresh_button_texts()
+        self.state = "settings"
+        self.settings_state = None
+
     def back_from_settings(self):
+        self.state = self.settings_state or "menu"
+        self.settings_state = None
+
+    def show_tutorial(self):
+        self.settings_state = self.state
+        self.state = "tutorial"
+
+    def back_from_tutorial(self):
         self.state = self.settings_state or "menu"
         self.settings_state = None
 
@@ -246,8 +317,30 @@ class Game:
                 elif self.state == "settings":
                     for btn in self.settings_buttons:
                         btn.handle_click(self.mouse_pos, True)
+                elif self.state == "languages":
+                    for btn in self.language_buttons:
+                        btn.handle_click(self.mouse_pos, True)
+                elif self.state == "tutorial":
+                    for btn in self.tutorial_buttons:
+                        btn.handle_click(self.mouse_pos, True)
+                elif self.state == "powerup":
+                    for btn in self.powerup_buttons:
+                        btn.handle_click(self.mouse_pos, True)
             elif event.type == pygame.MOUSEBUTTONUP:
                 self.mouse_down = False
+                if self.player is not None:
+                    self.player.release_trigger()
+            elif event.type == pygame.KEYDOWN and self.state == "powerup":
+                if pygame.K_1 <= event.key <= pygame.K_3:
+                    choice_index = event.key - pygame.K_1
+                    if choice_index < len(self.powerup_choices):
+                        self.choose_powerup(self.powerup_choices[choice_index])
+            elif event.type == pygame.KEYDOWN and event.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
+                if self.state == "playing" and self.player is not None:
+                    gun_index = event.key - pygame.K_1
+                    owned_guns = list(self.player.guns)
+                    if gun_index < len(owned_guns):
+                        self.player.equip_gun(owned_guns[gun_index])
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 if self.state == "playing":
                     self.state = "pause"
@@ -263,14 +356,21 @@ class Game:
     def update(self):
         self.dt = self.clock.tick(FPS) / 1000.0
         self.handle_input()
+        self.audio.update_music()
 
         if self.state == "menu":
             return
         if self.state == "settings":
             return
+        if self.state == "languages":
+            return
+        if self.state == "tutorial":
+            return
         if self.state == "game_over":
             return
         if self.state == "pause":
+            return
+        if self.state == "powerup":
             return
 
         for star in self.stars:
@@ -303,6 +403,7 @@ class Game:
             enemy.update(self.dt, self.player, self.enemy_bullets)
             if not enemy.alive:
                 self.score += 25
+                self.register_kill()
                 self.particles.add_explosion(enemy.x, enemy.y, (255, 150, 120), 18)
                 self.enemies.remove(enemy)
                 continue
@@ -325,6 +426,7 @@ class Game:
                         self.particles.add_hit(enemy.x, enemy.y, (170, 220, 255), 10)
                         if not enemy.alive:
                             self.score += 30
+                            self.register_kill()
                             self.particles.add_explosion(enemy.x, enemy.y, (255, 160, 100), 20)
                     break
 
@@ -378,17 +480,22 @@ class Game:
             pygame.draw.circle(self.screen, (255, 255, 255, star["alpha"]), (int(star["x"]), int(star["y"])), star["size"])
 
         if self.state == "menu":
-            self.ui.draw_menu(self.screen)
+            self.ui.draw_menu(self.screen, None)
             for btn in self.menu_buttons:
                 btn.draw(self.screen, self.mouse_pos)
         elif self.state == "settings":
-            self.ui.draw_menu(self.screen, "SETTINGS")
+            self.ui.draw_menu(self.screen, self.text("settings"))
             for btn in self.settings_buttons:
                 btn.draw(self.screen, self.mouse_pos)
-            volume_text = self.ui.font.render(f"Music Volume: {self.settings.music_volume:.2f}", True, (255, 255, 255))
-            sfx_text = self.ui.font.render(f"SFX Volume: {self.settings.sfx_volume:.2f}", True, (255, 255, 255))
-            self.screen.blit(volume_text, (520, 170))
-            self.screen.blit(sfx_text, (520, 260))
+            self.ui.draw_settings_values(self.screen)
+        elif self.state == "languages":
+            self.ui.draw_menu(self.screen, self.text("language"))
+            for btn in self.language_buttons:
+                btn.draw(self.screen, self.mouse_pos)
+        elif self.state == "tutorial":
+            self.ui.draw_tutorial(self.screen)
+            for btn in self.tutorial_buttons:
+                btn.draw(self.screen, self.mouse_pos)
         elif self.state == "pause":
             self.ui.draw_pause_overlay(self.screen)
             for btn in self.pause_buttons:
@@ -397,6 +504,8 @@ class Game:
             self.ui.draw_game_over(self.screen, self.score, self.wave_number)
             for btn in self.game_over_buttons:
                 btn.draw(self.screen, self.mouse_pos)
+        elif self.state == "powerup":
+            self.ui.draw_powerup_choices(self.screen, self.powerup_choices)
         else:
             if self.player is not None:
                 self.player.draw(self.screen)
@@ -421,6 +530,42 @@ class Game:
             self.screen.blit(wave_text, (SCREEN_WIDTH // 2 - 60, 50))
 
         pygame.display.flip()
+
+    def register_kill(self):
+        self.kills += 1
+        if self.kills % 10 == 0:
+            self.offer_powerups()
+
+    def offer_powerups(self):
+        available = [powerup for powerup in POWERUPS if powerup.name not in self.collected_powerups]
+        available = [powerup for powerup in available if powerup.kind != "weapon" or powerup.weapon_name not in self.player.guns]
+        if not available:
+            return
+        regular = [powerup for powerup in available if powerup.kind != "weapon"]
+        weapons = [powerup for powerup in available if powerup.kind == "weapon"]
+        choices = random.sample(regular, min(2, len(regular)))
+        if weapons and random.random() < 0.25:
+            choices.append(random.choice(weapons))
+        remaining = [powerup for powerup in available if powerup not in choices]
+        while len(choices) < min(3, len(available)):
+            choices.append(random.choice(remaining))
+            remaining.remove(choices[-1])
+        self.powerup_choices = choices
+        self.powerup_buttons = [
+            Button(90 + index * 390, 220, 350, 220, "", lambda choice=choice: self.choose_powerup(choice))
+            for index, choice in enumerate(choices)
+        ]
+        self.mouse_down = False
+        self.state = "powerup"
+
+    def choose_powerup(self, powerup: Powerup):
+        if self.state != "powerup" or powerup not in self.powerup_choices:
+            return
+        self.player.apply_powerup(powerup)
+        self.collected_powerups.add(powerup.name)
+        self.powerup_choices = []
+        self.powerup_buttons = []
+        self.state = "playing"
 
     def run(self):
         if self.smoke_test:

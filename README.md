@@ -25,6 +25,19 @@ python main.py
 - Mouse: mira
 - Botão esquerdo: disparar
 - ESC: pausar
+- Teclas 1 a 4: trocar entre armas desbloqueadas
+
+## Armas e powerups
+
+As armas estão catalogadas em `src/guns.py`: Pistola, SMG, Shotgun e Sniper.
+A Pistola começa equipada. A SMG dispara automaticamente, enquanto Pistola,
+Shotgun e Sniper exigem soltar e apertar o botão para cada tiro. A Shotgun lança
+três projéteis, com os laterais a 45 graus.
+
+A cada 10 mortes, o jogo pausa e oferece três powerups. Cada powerup só pode ser
+escolhido uma vez por partida. As armas são opções raras; ao desbloqueá-las,
+elas ficam disponíveis para troca pelas teclas 1 a 4. Rapidfire, The Flash e
+Red Cross têm duração limitada, e Salvation é permanente.
 
 ## Assets e música
 
