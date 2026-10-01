@@ -5,6 +5,13 @@ import sys
 
 import pygame
 
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
+
 from config import DEFAULT_SETTINGS, FPS, ROOT_DIR, SCREEN_HEIGHT, SCREEN_WIDTH, TITLE
 from src.audio import AudioManager
 from src.bosses import BossOne, BossTwo
@@ -17,6 +24,8 @@ from src.ui import Button, UI
 from src.i18n import LANGUAGE_NAMES, translate
 from src.utils import get_asset_path, load_image
 from src.waves import WaveSystem
+
+MOVEMENT_KEYS = (pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d, pygame.K_UP, pygame.K_LEFT, pygame.K_DOWN, pygame.K_RIGHT)
 
 
 class Game:
@@ -42,6 +51,9 @@ class Game:
         self.settings = SettingsManager()
         self.audio = AudioManager()
         self.audio.set_volume(self.settings.music_volume, self.settings.sfx_volume)
+        self.music_notification_track = ""
+        self.music_notification_timer = 0.0
+        self.music_track_sequence = 0
 
         self.wave_system = WaveSystem()
         self.ui = UI(self)
@@ -119,6 +131,9 @@ class Game:
 
         self.mouse_pos = pygame.mouse.get_pos()
         self.mouse_down = False
+        self.movement_keys = set()
+        self.dash_key_held = False
+        self.window_focused = True
 
     def reset_run(self):
         self.player = Player(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
@@ -146,6 +161,7 @@ class Game:
 
     def resume_game(self):
         self.state = "playing"
+        self.audio.resume_music()
 
     def return_to_menu(self):
         self.state = "menu"
@@ -161,6 +177,13 @@ class Game:
 
     def text(self, key):
         return translate(self.language, key)
+
+    def update_music_notification(self):
+        self.music_notification_timer = max(0.0, self.music_notification_timer - self.dt)
+        if self.audio.track_sequence != self.music_track_sequence:
+            self.music_track_sequence = self.audio.track_sequence
+            self.music_notification_track = self.audio.current_track_name
+            self.music_notification_timer = 3.0
 
     def refresh_button_texts(self):
         labels = ("play", "settings", "tutorial", "quit")
@@ -299,8 +322,68 @@ class Game:
             active += 1
         return active
 
+    def read_movement_keys(self):
+        if not self.window_focused:
+            return set()
+        pressed_keys = pygame.key.get_pressed()
+        return {key for key in MOVEMENT_KEYS if pressed_keys[key]}
+
+    def resolve_body_collisions(self):
+        bodies = [enemy for enemy in self.enemies if enemy.alive]
+        if self.current_boss is not None and self.current_boss.alive:
+            bodies.append(self.current_boss)
+
+        for _ in range(8):
+            for index, body in enumerate(bodies):
+                for other in bodies[index + 1:]:
+                    self.separate_bodies(body, other)
+
+            if self.player is not None:
+                for body in bodies:
+                    self.separate_bodies(self.player, body)
+
+    @staticmethod
+    def separate_bodies(first, second):
+        dx = second.x - first.x
+        dy = second.y - first.y
+        distance = math.hypot(dx, dy)
+        minimum_distance = first.radius + second.radius
+        if distance >= minimum_distance:
+            return
+
+        if distance == 0:
+            dx = 1.0
+            dy = 0.0
+            distance = 1.0
+
+        overlap = minimum_distance - distance
+        offset_x = (dx / distance) * overlap * 0.5
+        offset_y = (dy / distance) * overlap * 0.5
+        first.x -= offset_x
+        first.y -= offset_y
+        second.x += offset_x
+        second.y += offset_y
+
+        for body in (first, second):
+            body.x = max(body.radius, min(body.x, SCREEN_WIDTH - body.radius))
+            body.y = max(body.radius, min(body.y, SCREEN_HEIGHT - body.radius))
+
     def handle_input(self):
         for event in pygame.event.get():
+            if event.type == pygame.WINDOWFOCUSLOST:
+                self.window_focused = False
+                self.movement_keys.clear()
+                self.dash_key_held = False
+            elif event.type == pygame.WINDOWFOCUSGAINED:
+                self.window_focused = True
+
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                if not self.dash_key_held and self.state == "playing" and self.player is not None:
+                    self.player.start_dash(self.read_movement_keys())
+                self.dash_key_held = True
+            elif event.type == pygame.KEYUP and event.key == pygame.K_SPACE:
+                self.dash_key_held = False
+
             if event.type == pygame.QUIT:
                 self.running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
@@ -344,19 +427,23 @@ class Game:
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 if self.state == "playing":
                     self.state = "pause"
+                    self.audio.pause_music()
                 elif self.state == "pause":
                     self.state = "playing"
+                    self.audio.resume_music()
 
         self.mouse_pos = pygame.mouse.get_pos()
         if self.state == "playing":
             if self.player is not None and self.mouse_down:
                 if self.player.shoot(self.player_bullets):
                     self.audio.play_sfx("GunshotSoundEffect.mp3")
+        self.movement_keys = self.read_movement_keys()
 
     def update(self):
         self.dt = self.clock.tick(FPS) / 1000.0
         self.handle_input()
         self.audio.update_music()
+        self.update_music_notification()
 
         if self.state == "menu":
             return
@@ -382,7 +469,7 @@ class Game:
         self.particles.update(self.dt)
 
         if self.player is not None:
-            self.player.update(self.dt, self.mouse_pos, pygame.key.get_pressed())
+            self.player.update(self.dt, self.mouse_pos, self.movement_keys)
             if self.mouse_down:
                 if self.player.shoot(self.player_bullets):
                     self.audio.play_sfx("GunshotSoundEffect.mp3")
@@ -406,12 +493,13 @@ class Game:
                 self.register_kill()
                 self.particles.add_explosion(enemy.x, enemy.y, (255, 150, 120), 18)
                 self.enemies.remove(enemy)
-                continue
 
-            if self.player is not None:
+        if self.player is not None:
+            for enemy in self.enemies:
                 if math.hypot(enemy.x - self.player.x, enemy.y - self.player.y) < enemy.radius + self.player.radius:
                     if self.player.take_damage(enemy.damage):
                         self.particles.add_hit(self.player.x, self.player.y, (255, 255, 255), 14)
+        self.resolve_body_collisions()
 
         for bullet in list(self.player_bullets):
             bullet.update(self.dt)
@@ -428,6 +516,7 @@ class Game:
                             self.score += 30
                             self.register_kill()
                             self.particles.add_explosion(enemy.x, enemy.y, (255, 160, 100), 20)
+                            self.enemies.remove(enemy)
                     break
 
             if bullet.active and self.current_boss is not None and self.current_boss.alive:
@@ -437,6 +526,8 @@ class Game:
                     self.particles.add_hit(self.current_boss.x, self.current_boss.y, (255, 160, 180), 12)
                     if not self.current_boss.alive:
                         self.score += 500
+                        if self.player is not None:
+                            self.player.heal(10)
                         self.particles.add_explosion(self.current_boss.x, self.current_boss.y, (250, 120, 120), 60)
 
         for bullet in list(self.enemy_bullets):
@@ -529,10 +620,15 @@ class Game:
             wave_text = self.ui.font.render(self.current_wave_label, True, (255, 230, 140))
             self.screen.blit(wave_text, (SCREEN_WIDTH // 2 - 60, 50))
 
+        if self.music_notification_timer > 0:
+            self.ui.draw_music_notification(self.screen, self.music_notification_track)
+
         pygame.display.flip()
 
     def register_kill(self):
         self.kills += 1
+        if self.player is not None:
+            self.player.heal(2)
         if self.kills % 10 == 0:
             self.offer_powerups()
 

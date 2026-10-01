@@ -2,6 +2,13 @@ import math
 
 import pygame
 
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
+
 from config import ROOT_DIR, SCREEN_HEIGHT, SCREEN_WIDTH
 
 
@@ -139,6 +146,22 @@ class UI:
             boss_y = 90
             pygame.draw.rect(surface, (35, 45, 60), (boss_x, boss_y, boss_bar_w, boss_bar_h), border_radius=8)
             pygame.draw.rect(surface, (220, 65, 65), (boss_x, boss_y, boss_bar_w * max(0, min(1, boss.hp / boss.max_hp)), boss_bar_h), border_radius=8)
+
+    def draw_music_notification(self, surface, track_name):
+        text = self.game.text("now_playing").format(track=track_name)
+        rendered = self.small_font.render(text, True, (238, 245, 250))
+        padding_x = 12
+        padding_y = 9
+        width = rendered.get_width() + padding_x * 2
+        height = rendered.get_height() + padding_y * 2
+        x = surface.get_width() - width - 20
+        y = 84
+
+        popup = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.rect(popup, (13, 20, 31, 225), popup.get_rect(), border_radius=7)
+        pygame.draw.rect(popup, (100, 190, 210, 210), popup.get_rect(), 1, border_radius=7)
+        surface.blit(popup, (x, y))
+        surface.blit(rendered, (x + padding_x, y + padding_y))
 
     def draw_menu(self, surface, title=None):
         self.draw_menu_background(surface)

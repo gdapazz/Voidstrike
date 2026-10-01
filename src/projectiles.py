@@ -2,6 +2,13 @@ import math
 
 import pygame
 
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
+
 from config import ROOT_DIR
 from src.utils import get_asset_path, load_image
 

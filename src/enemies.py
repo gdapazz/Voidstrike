@@ -3,6 +3,13 @@ import random
 
 import pygame
 
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
+
 from config import ENEMY_SPAWN_MARGIN, SCREEN_HEIGHT, SCREEN_WIDTH
 from src.projectiles import EnemyBullet
 from src.utils import angle_to, get_asset_path, load_image, normalize

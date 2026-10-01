@@ -12,6 +12,7 @@ TRANSLATIONS = {
         "aim_help": "Move the mouse to aim", "shoot_help": "Hold the left mouse button to shoot",
         "weapons_help": "Use 1 to 4 to switch unlocked weapons", "powerups_help": "Choose an upgrade every 10 kills",
         "pause_help": "Press ESC to pause the game", "choose_help": "or click",
+        "now_playing": "Now playing: {track}",
     },
     "portugues": {
         "play": "JOGAR", "settings": "CONFIGURACOES", "tutorial": "TUTORIAL", "quit": "SAIR",
@@ -26,6 +27,7 @@ TRANSLATIONS = {
         "aim_help": "Mova o mouse para mirar", "shoot_help": "Segure o botao esquerdo para atirar",
         "weapons_help": "Use 1 a 4 para trocar armas desbloqueadas", "powerups_help": "Escolha uma melhoria a cada 10 mortes",
         "pause_help": "Pressione ESC para pausar o jogo", "choose_help": "ou clique",
+        "now_playing": "Ouvindo agora: {track}",
     },
     "espanol": {
         "play": "JUGAR", "settings": "AJUSTES", "tutorial": "TUTORIAL", "quit": "SALIR",
@@ -40,6 +42,7 @@ TRANSLATIONS = {
         "aim_help": "Mueve el raton para apuntar", "shoot_help": "Manten pulsado el boton izquierdo para disparar",
         "weapons_help": "Usa 1 a 4 para cambiar armas desbloqueadas", "powerups_help": "Elige una mejora cada 10 muertes",
         "pause_help": "Pulsa ESC para pausar el juego", "choose_help": "o haz clic",
+        "now_playing": "Reproduciendo ahora: {track}",
     },
 }
 

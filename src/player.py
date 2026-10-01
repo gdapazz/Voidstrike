@@ -2,6 +2,13 @@ import math
 
 import pygame
 
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
+
 from config import PLAYER_BULLET_SPEED, PLAYER_DAMAGE, PLAYER_FIRE_COOLDOWN, PLAYER_INVULNERABILITY, PLAYER_MAX_HP, PLAYER_SPEED, SCREEN_HEIGHT, SCREEN_WIDTH
 from src.guns import PISTOL, Gun
 from src.projectiles import PlayerBullet
@@ -9,11 +16,21 @@ from src.utils import get_asset_path, load_image
 
 
 class Player:
+    DASH_SPEED = 900
+    DASH_DURATION = 0.16
+    DASH_COOLDOWN = 2.00
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.radius = 18
         self.speed = PLAYER_SPEED
+        self.velocity_x = 0.0
+        self.velocity_y = 0.0
+        self.dash_timer = 0.0
+        self.dash_cooldown = 0.0
+        self.dash_direction_x = 0.0
+        self.dash_direction_y = 0.0
         self.max_hp = PLAYER_MAX_HP
         self.hp = self.max_hp
         self.guns = {PISTOL.name: PISTOL}
@@ -29,15 +46,40 @@ class Player:
         self.damaged_flash = 0.0
 
     def update(self, dt, mouse_pos, keys):
-        move_x = (keys[pygame.K_d] or keys[pygame.K_RIGHT]) - (keys[pygame.K_a] or keys[pygame.K_LEFT])
-        move_y = (keys[pygame.K_s] or keys[pygame.K_DOWN]) - (keys[pygame.K_w] or keys[pygame.K_UP])
+        move_x = int(pygame.K_d in keys or pygame.K_RIGHT in keys) - int(pygame.K_a in keys or pygame.K_LEFT in keys)
+        move_y = int(pygame.K_s in keys or pygame.K_DOWN in keys) - int(pygame.K_w in keys or pygame.K_UP in keys)
+        speed_multiplier = 3.0 if self.flash_timer > 0 else 1.0
+        normal_dt = dt
+
+        if self.dash_timer > 0:
+            dash_dt = min(dt, self.dash_timer)
+            self.x += self.dash_direction_x * self.DASH_SPEED * dash_dt
+            self.y += self.dash_direction_y * self.DASH_SPEED * dash_dt
+            self.dash_timer = max(0.0, self.dash_timer - dash_dt)
+            self.velocity_x = self.dash_direction_x * self.speed * speed_multiplier
+            self.velocity_y = self.dash_direction_y * self.speed * speed_multiplier
+            normal_dt -= dash_dt
+
         if move_x or move_y:
             length = math.hypot(move_x, move_y)
-            speed_multiplier = 3.0 if self.flash_timer > 0 else 1.0
-            self.x += (move_x / length) * self.speed * speed_multiplier * dt
-            self.y += (move_y / length) * self.speed * speed_multiplier * dt
+            target_velocity_x = (move_x / length) * self.speed * speed_multiplier
+            target_velocity_y = (move_y / length) * self.speed * speed_multiplier
+        else:
+            target_velocity_x = 0.0
+            target_velocity_y = 0.0
+
+        if normal_dt > 0:
+            self.velocity_x = target_velocity_x
+            self.velocity_y = target_velocity_y
+            self.x += self.velocity_x * normal_dt
+            self.y += self.velocity_y * normal_dt
+
         self.x = max(self.radius, min(self.x, SCREEN_WIDTH - self.radius))
         self.y = max(self.radius, min(self.y, SCREEN_HEIGHT - self.radius))
+        if self.x in (self.radius, SCREEN_WIDTH - self.radius):
+            self.velocity_x = 0.0
+        if self.y in (self.radius, SCREEN_HEIGHT - self.radius):
+            self.velocity_y = 0.0
 
         self.angle = math.atan2(mouse_pos[1] - self.y, mouse_pos[0] - self.x)
         self.fire_timer = max(0.0, self.fire_timer - dt)
@@ -45,10 +87,31 @@ class Player:
         self.damaged_flash = max(0.0, self.damaged_flash - dt)
         self.rapidfire_timer = max(0.0, self.rapidfire_timer - dt)
         self.flash_timer = max(0.0, self.flash_timer - dt)
+        self.dash_cooldown = max(0.0, self.dash_cooldown - dt)
         if self.red_cross_timer > 0:
             previous_timer = self.red_cross_timer
             self.red_cross_timer = max(0.0, self.red_cross_timer - dt)
             self.hp = min(self.max_hp, self.hp + (5.0 * (previous_timer - self.red_cross_timer)))
+
+    def start_dash(self, keys):
+        if self.dash_cooldown > 0 or self.dash_timer > 0:
+            return False
+
+        move_x = int(pygame.K_d in keys or pygame.K_RIGHT in keys) - int(pygame.K_a in keys or pygame.K_LEFT in keys)
+        move_y = int(pygame.K_s in keys or pygame.K_DOWN in keys) - int(pygame.K_w in keys or pygame.K_UP in keys)
+        if move_x == 0 and move_y == 0:
+            move_x = self.velocity_x
+            move_y = self.velocity_y
+
+        length = math.hypot(move_x, move_y)
+        if length == 0:
+            return False
+
+        self.dash_direction_x = move_x / length
+        self.dash_direction_y = move_y / length
+        self.dash_timer = self.DASH_DURATION
+        self.dash_cooldown = self.DASH_COOLDOWN
+        return True
 
     def shoot(self, bullets):
         if self.weapon.fire_mode == "single" and self.trigger_held and self.rapidfire_timer <= 0:
@@ -103,6 +166,9 @@ class Player:
         self.invulnerable_timer = PLAYER_INVULNERABILITY
         self.damaged_flash = 0.25
         return True
+
+    def heal(self, amount):
+        self.hp = min(self.max_hp, self.hp + amount)
 
     def draw(self, surface):
         if self.image:

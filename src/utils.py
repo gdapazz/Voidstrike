@@ -1,8 +1,16 @@
 import math
 import random
+from functools import lru_cache
 from pathlib import Path
 
 import pygame
+
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
 
 from config import ROOT_DIR
 
@@ -31,7 +39,8 @@ def get_asset_path(*parts):
     return str(ROOT_DIR / relative)
 
 
-def load_image(path, size=None, colorkey=None, alpha=True):
+@lru_cache(maxsize=256)
+def _load_image_cached(path, size, colorkey, alpha):
     try:
         image = pygame.image.load(path).convert_alpha() if alpha else pygame.image.load(path).convert()
         if size:
@@ -41,6 +50,12 @@ def load_image(path, size=None, colorkey=None, alpha=True):
         return image
     except Exception:
         return None
+
+
+def load_image(path, size=None, colorkey=None, alpha=True):
+    cache_size = tuple(size) if size is not None else None
+    cache_colorkey = tuple(colorkey) if colorkey is not None else None
+    return _load_image_cached(str(path), cache_size, cache_colorkey, alpha)
 
 
 def random_choice_weighted(items):

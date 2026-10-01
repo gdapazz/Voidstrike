@@ -2,12 +2,10 @@ import json
 import random
 from pathlib import Path
 
-from config import ROOT_DIR, WAVE_CONFIG_PATH
-
 
 class WaveSystem:
     def __init__(self):
-        self.config_path = WAVE_CONFIG_PATH
+        self.config_path = Path(__file__).resolve().parent.parent / "data" / "waves.json"
         self.wave_data = self.load()
         self.current_wave = 1
 

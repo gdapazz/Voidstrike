@@ -1,6 +1,13 @@
 import json
 from pathlib import Path
 
+if __package__:
+    from ._bootstrap import ensure_project_root
+else:
+    from _bootstrap import ensure_project_root
+
+ensure_project_root()
+
 from config import DEFAULT_SETTINGS, SETTINGS_PATH
 
 
